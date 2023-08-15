@@ -15,7 +15,6 @@ from detectron2.utils.colormap import random_color
 from detectron2.data import MetadataCatalog, Metadata
 from detectron2.structures import BitMasks
 from xdecoder.language.loss import vl_similarity
-from detectron2.data.datasets.builtin_meta import COCO_CATEGORIES
 
 import cv2
 import os
@@ -33,9 +32,9 @@ def register_classes(class_names):
     if len(class_names) == 0:
         metadata = Metadata(name="autra")
         all_classes = [name.replace('-other', '').replace('-merged', '') for name in coco_metadata.stuff_classes]
-        metadata.thing_classes = all_classes + ['traffic sign']
+        metadata.thing_classes = all_classes
         metadata.stuff_classes = metadata.thing_classes
-        metadata.thing_colors = coco_metadata.thing_colors + [[250, 250, 0]]
+        metadata.thing_colors = coco_metadata.stuff_colors
         metadata.stuff_colors = metadata.thing_colors
         metadata.thing_dataset_id_to_contiguous_id = dict((i, i) for i in range(len(metadata.thing_classes)))
         metadata.stuff_dataset_id_to_contiguous_id = metadata.thing_dataset_id_to_contiguous_id
@@ -45,7 +44,7 @@ def register_classes(class_names):
     metadata.stuff_classes = metadata.thing_classes
     colors = []
     for i in range(len(class_names)):
-        colors.append(coco_metadata.thing_colors[i % len(class_names)])
+        colors.append(coco_metadata.stuff_colors[i % len(class_names)])
     metadata.thing_colors = colors
     metadata.stuff_colors = metadata.thing_colors
     metadata.thing_dataset_id_to_contiguous_id = dict((i, i) for i in range(len(metadata.thing_classes)))
@@ -56,9 +55,9 @@ def register_classes(class_names):
 def interactive_infer_image(model, audio_model, image, tasks, refimg=None, reftxt=None, audio_pth=None, video_pth=None):
 
     metadata = Metadata(name="autra")
-    metadata.thing_classes = coco_metadata.thing_classes + ['traffic sign']
+    metadata.thing_classes = coco_metadata.thing_classes
     metadata.stuff_classes = metadata.thing_classes
-    metadata.thing_colors = coco_metadata.thing_colors + [[250, 250, 0]]
+    metadata.thing_colors = coco_metadata.stuff_colors
     metadata.stuff_colors = metadata.thing_colors
     metadata.thing_dataset_id_to_contiguous_id = dict((i, i) for i in range(len(metadata.thing_classes)))
     metadata.stuff_dataset_id_to_contiguous_id = metadata.thing_dataset_id_to_contiguous_id
@@ -222,9 +221,9 @@ def interactive_infer_image(model, audio_model, image, tasks, refimg=None, reftx
 
 def interactive_infer_video(model, audio_model, image, tasks, refimg=None, reftxt=None, audio_pth=None, video_pth=None):
     metadata = Metadata(name="autra")
-    metadata.thing_classes = coco_metadata.thing_classes + ['traffic sign']
+    metadata.thing_classes = coco_metadata.thing_classes
     metadata.stuff_classes = metadata.thing_classes
-    metadata.thing_colors = coco_metadata.thing_colors + [[250, 250, 0]]
+    metadata.thing_colors = coco_metadata.thing_colors
     metadata.stuff_colors = metadata.thing_colors
     metadata.thing_dataset_id_to_contiguous_id = dict((i, i) for i in range(len(metadata.thing_classes)))
     metadata.stuff_dataset_id_to_contiguous_id = metadata.thing_dataset_id_to_contiguous_id

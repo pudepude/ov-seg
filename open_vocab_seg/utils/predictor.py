@@ -18,16 +18,6 @@ from segment_anything_hq import sam_hq_model_registry, SamAutomaticMaskGenerator
 from open_vocab_seg.modeling.clip_adapter.adapter import PIXEL_MEAN, PIXEL_STD
 from open_vocab_seg.modeling.clip_adapter.utils import crop_with_mask
 
-#seem
-import sys
-import os
-sys.path.append('seem')
-from xdecoder.BaseModel import BaseModel
-from xdecoder import build_model
-from utils.distributed import init_distributed
-from utils.arguments import load_opt_from_config_files
-from tasks.interactive import transform, register_classes
-from PIL import Image
 
 class OVSegPredictor(DefaultPredictor):
     def __init__(self, cfg):
@@ -159,6 +149,7 @@ def infer_sam_type(sam_path, sam_type):
     if "vit_b" in sam_path: return "vit_b"
     assert False, f"Unknown sam type for {sam_path}"
 
+
 class SAMVisualizationDemo(object):
     def __init__(self, cfg, granularity, sam_path, ovsegclip_path, instance_mode=ColorMode.IMAGE, parallel=False, use_hq=False, sam_type=None):
         self.metadata = MetadataCatalog.get(
@@ -265,55 +256,3 @@ class SAMVisualizationDemo(object):
         )
 
         return None, vis_output
-
-
-class SEEMVisualizationDemo(object):
-    def __init__(self, cfg="seem/configs/seem/seem_focall_lang.yaml",
-                 pretrained_pth="seem/seem_focall_v1.pt"):
-        if not os.path.exists(pretrained_pth):
-            os.system("wget -O {} {}".format(pretrained_pth, "https://huggingface.co/xdecoder/SEEM/resolve/main/seem_focall_v1.pt"))
-        opt = load_opt_from_config_files(cfg)
-        opt = init_distributed(opt)
-        self.model = BaseModel(opt, build_model(opt)).from_pretrained(pretrained_pth).eval().cuda()
-
-    def run_on_image(self, ori_image, class_names=[]):
-        self.model.model.metadata = register_classes(class_names)
-        with torch.no_grad():
-            self.model.model.sem_seg_head.predictor.lang_encoder.get_text_embeddings(
-                self.model.model.metadata.thing_classes, is_eval=True)
-            self.model.model.task_switch['spatial'] = False
-            self.model.model.task_switch['visual'] = False
-            self.model.model.task_switch['grounding'] = False
-            self.model.model.task_switch['audio'] = False
-        # image = {"image": Image.fromarray(ori_image), "mask": None}
-        # image_ori = transform(image['image'])
-        # new_width = image_ori.size[0]
-        # new_height = image_ori.size[1]
-        # image_ori = np.asarray(image_ori)
-        # visual = Visualizer(image_ori, metadata=self.model.model.metadata)
-        # images = torch.from_numpy(image_ori.copy()).permute(2, 0, 1).cuda()
-
-        height, width, _ = ori_image.shape
-        if width < height:
-            new_width = 512
-            new_height = int((new_width / width) * height)
-        else:
-            new_height = 512
-            new_width = int((new_height / height) * width)
-        image = cv2.resize(ori_image, (new_width, new_height), interpolation=cv2.INTER_CUBIC)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-
-        visual = Visualizer(image, metadata=self.model.model.metadata)
-        images = torch.from_numpy(image.copy()).permute(2, 0, 1).cuda()
-        data = {"image": images, "height": new_height, "width": new_width}
-        batch_inputs = [data]
-
-        results = self.model.model.evaluate(batch_inputs)
-        pano_seg = results[-1]['panoptic_seg'][0]
-        pano_seg_info = results[-1]['panoptic_seg'][1]
-        vis_output = visual.draw_panoptic_seg(pano_seg.cpu(), pano_seg_info)  # rgb Image
-        pano_seg_origin = F.interpolate(pano_seg.view(1, 1, new_height, new_width).float(), size=(height, width), mode="nearest").squeeze().int()
-        predictions = {"sem_seg": pano_seg_origin, "sem_seg_info": pano_seg_info}
-
-        return predictions, vis_output
-

@@ -17,18 +17,11 @@ from detectron2.config import get_cfg
 
 from detectron2.projects.deeplab import add_deeplab_config
 from detectron2.data.detection_utils import read_image
-from open_vocab_seg import add_ovseg_config
-from open_vocab_seg.utils import VisualizationDemo, SAMVisualizationDemo, SEEMVisualizationDemo
 
 import gradio as gr
 
-import gdown
-
-# ckpt_url = 'https://drive.google.com/uc?id=1cn-ohxgXDrDfkzC1QdO-fi8IjbjXmgKy'
-# output = './ovseg_swinbase_vitL14_ft_mpt.pth'
-# gdown.download(ckpt_url, output, quiet=False)
-
 def setup_cfg(config_file):
+    from open_vocab_seg import add_ovseg_config
     # load config from file and command-line arguments
     cfg = get_cfg()
     add_deeplab_config(cfg)
@@ -42,19 +35,60 @@ def inference(class_names, proposal_gen, granularity, input_img):
     mp.set_start_method("spawn", force=True)
 
     if proposal_gen == 'MaskFormer':
+        from open_vocab_seg.utils import VisualizationDemo
         config_file = './ovseg_swinB_vitL_demo.yaml'
         cfg = setup_cfg(config_file)
         demo = VisualizationDemo(cfg)
     elif proposal_gen == 'Segment_Anything':
+        from open_vocab_seg.utils import SAMVisualizationDemo
         config_file = './ovseg_swinB_vitL_demo.yaml'
         cfg = setup_cfg(config_file)
         demo = SAMVisualizationDemo(cfg, granularity, "./sam_vit_l_0b3195.pth", './ovseg_clip_l_9a1909.pth')
     elif proposal_gen == 'Segment_Anything_HQ':
+        from open_vocab_seg.utils import SAMVisualizationDemo
         config_file = './ovseg_swinB_vitL_demo.yaml'
         cfg = setup_cfg(config_file)
         demo = SAMVisualizationDemo(cfg, granularity, "./sam_hq_vit_l.pth", './ovseg_clip_l_9a1909.pth', use_hq=True)
     elif proposal_gen == 'SEEM':
+        # seem
+        import sys
+        sys.path.append('seem')
+        from utils import SEEMVisualizationDemo
         demo = SEEMVisualizationDemo()
+    elif proposal_gen == 'Mask2Former':
+        # seem
+        import sys
+        sys.path.append('seem')
+        from utils import Mask2FormerVisualizationDemo
+        from mask2former import add_maskformer2_config
+        cfg = get_cfg()
+        add_deeplab_config(cfg)
+        add_maskformer2_config(cfg)
+        cfg.merge_from_file("./maskformer2_swin_large_IN21k_384_bs16_100ep.yaml")
+        cfg.MODEL.MASK_FORMER.TEST.SEMANTIC_ON = False
+        cfg.MODEL.MASK_FORMER.TEST.INSTANCE_ON = False
+        cfg.MODEL.MASK_FORMER.TEST.PANOPTIC_ON = True
+        demo = Mask2FormerVisualizationDemo(cfg)
+    elif proposal_gen == "seemMask2Former":
+        # seem
+        import sys
+        sys.path.append('seem')
+        from utils import SEEMMask2FormerVisualizationDemo
+        from mask2former import add_maskformer2_config
+        cfg = get_cfg()
+        add_deeplab_config(cfg)
+        add_maskformer2_config(cfg)
+        cfg.merge_from_file("./maskformer2_swin_large_IN21k_384_bs16_100ep.yaml")
+        cfg.MODEL.MASK_FORMER.TEST.SEMANTIC_ON = False
+        cfg.MODEL.MASK_FORMER.TEST.INSTANCE_ON = False
+        cfg.MODEL.MASK_FORMER.TEST.PANOPTIC_ON = True
+        demo = SEEMMask2FormerVisualizationDemo(cfg)
+    elif proposal_gen == 'YOLOV8':
+        import sys
+        sys.path.append('seem')
+        from utils import YOLOVisualizationDemo
+        demo = YOLOVisualizationDemo()
+
     class_names = list(filter(lambda x: len(x) > 0, class_names.split(',')))
     img = read_image(input_img, format="BGR")
     _, visualized_output = demo.run_on_image(img, class_names)
@@ -89,17 +123,39 @@ Open-Vocabulary Semantic Segmentation with Mask-adapted CLIP
 <a href='https://github.com/facebookresearch/ov-seg' target='_blank'>Github Repo</a></p>
 """
 
-gr.Interface(
-    inference,
-    inputs=[
-        gr.Textbox(
-            lines=1, placeholder=None, label='class names'),
-        gr.Radio(["SEEM", "Segment_Anything", "Segment_Anything_HQ", "MaskFormer"], label="Proposal generator"),
-        gr.Slider(0, 1.0, 0.8, label="For Segment_Anything only, granularity of masks from 0 (most coarse) to 1 (most precise)"),
-        gr.Image(type='filepath'),
-    ],
-    outputs=gr.components.Image(type="pil", label='segmentation map'),
-    title=title,
-    description=description,
-    article=article,
-    examples=examples).launch(enable_queue=True, server_name="0.0.0.0")
+models = ["SEEM", "Mask2Former", 'seemMask2Former', 'YOLOV8']
+models2 = [ "Segment_Anything", "Segment_Anything_HQ", "MaskFormer"]
+
+def run(is_seem: bool):
+    if is_seem:
+        gr.Interface(
+            inference,
+            inputs=[
+                gr.Textbox(
+                    lines=1, placeholder=None, label='class names'),
+                gr.Radio(models, label="Proposal generator"),
+                gr.Slider(0, 1.0, 0.1,
+                          label="For Segment_Anything only, granularity of masks from 0 (most coarse) to 1 (most precise)"),
+                gr.Image(type='filepath'),
+            ],
+            outputs=gr.components.Image(type="pil", label='segmentation map'),
+            title="Segment COCO").launch(enable_queue=True, server_name="0.0.0.0")
+    else:
+        gr.Interface(
+            inference,
+            inputs=[
+                gr.Textbox(
+                    lines=1, placeholder=None, label='class names'),
+                gr.Radio(models2, label="Proposal generator"),
+                gr.Slider(0, 1.0, 0.1, label="For Segment_Anything only, granularity of masks from 0 (most coarse) to 1 (most precise)"),
+                gr.Image(type='filepath'),
+            ],
+            outputs=gr.components.Image(type="pil", label='segmentation map'),
+            title=title,
+            description=description,
+            article=article,
+            examples=examples).launch(enable_queue=True, server_name="0.0.0.0")
+
+import fire
+if __name__ == '__main__':
+    fire.Fire(run)

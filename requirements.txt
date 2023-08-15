@@ -33,3 +33,7 @@ nltk
 transformers==4.19.2
 git+https://github.com/openai/whisper.git
 git+https://github.com/arogozhnikov/einops.git
+
+
+# yolov8
+ultralytics

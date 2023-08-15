@@ -2,15 +2,15 @@ import numpy as np
 #旋转向量 到 旋转矩阵
 
 def rotation_matrix_from_vector(rvector, translation=None):
-    x, y, z = rvector[:, 0]
+    x, y, z = rvector.squeeze()
     theta = np.sqrt(x * x + y * y + z * z)
-    r = rvector / theta
+    r = rvector.squeeze() / theta
     first = np.cos(theta) * np.eye(3)
-    second = (1 - np.cos(theta)) * np.dot(r, r.T)
+    second = (1 - np.cos(theta)) * np.dot(r[:, None], r[None])
     third = np.sin(theta) * np.array([
-        [0, -r[2, 0], r[1, 0]],
-        [r[2, 0], 0, -r[0, 0]],
-        [-r[1, 0], r[0, 0], 0]
+        [0, -r[2], r[1]],
+        [r[2], 0, -r[0]],
+        [-r[1], r[0], 0]
     ])
     final = first + second + third
     if translation is None: return final
@@ -23,7 +23,7 @@ def rotation_matrix_from_vector(rvector, translation=None):
 
 # 旋转向量 到 四元式
 def to_quaternion(rvector):
-    x, y, z = rvector[:, 0]
+    x, y, z = rvector.squeeze()
     theta = np.sqrt(x * x + y * y + z * z)
     nx = x / theta
     ny = y / theta
@@ -38,7 +38,7 @@ def to_quaternion(rvector):
 
 #四元式到旋转矩阵
 def rotation_matrix_from_quaternion(qvector):
-    qx, qy, qz, qw = qvector[:, 0]
+    qx, qy, qz, qw = qvector.squeeze()
     R = np.asarray([
     [1- 2 * qy * qy - 2 * qz * qz, 2 * qx * qy + 2 * qw * qz, 2 * qx * qz - 2 * qw * qy],
     [2 * qx * qy - 2 * qw * qz, 1 - 2 * qx * qx - 2 * qz * qz, 2 * qy * qz + 2 * qw * qx],
@@ -93,6 +93,6 @@ def imu_yaw_from_camera_yaw(yaw, rotate_vectors):
 # qx, qy, qz, qw = quaternion[:, 0]
 # print(qx, qy, qz, qw)
 # mat_from_qua = rotation_matrix_from_quaternion(quaternion)
-# mat_from_rvec = rotation_matrix(rvec)
+# mat_from_rvec = rotation_matrix_from_vector(rvec)
 #
 # print((mat_from_qua, mat_from_rvec))
